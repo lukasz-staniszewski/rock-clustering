@@ -4,7 +4,13 @@ from typing import Optional
 import pandas as pd
 from ucimlrepo import fetch_ucirepo
 
-from .data import ClusteringDataset
+
+@dataclass
+class ClusteringDataset:
+    data: pd.DataFrame
+    target: pd.Series
+    metadata: Optional[pd.DataFrame] = None
+    variables: Optional[pd.DataFrame] = None
 
 
 def get_mushroom_dataset() -> ClusteringDataset:
