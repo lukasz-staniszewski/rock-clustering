@@ -1,10 +1,12 @@
+from copy import deepcopy
 from heapq import heapify, heappop, heappush
 from typing import Callable, List, Tuple
 
+from process_data import RockInput
 from tqdm import tqdm
 
-from rock.cluster import Cluster, Heap, compute_points_links
-from rock.process import RockInput
+from rock.cluster import Cluster, ClusteringPoint, Heap, compute_points_links, get_expected_cluster_size_penalty
+from rock.metrics import is_jaccard_similar
 
 
 class RockAlgorithm:
@@ -20,20 +22,23 @@ class RockAlgorithm:
     def __init__(self, dataset: RockInput, k: int, theta: float, approx_fn: Callable, outliers_factor: float = 0.33):
         print("Initializing Rock algorithm...")
         self.dataset = dataset
+        self.dataset_train = dataset.data_train
+        self.dataset_test = dataset.data_test
         self.k = k
         self.theta = theta
         self.approx_fn = approx_fn
         self.outliers_factor = outliers_factor
-        self._points_links = compute_points_links(points=dataset.data, theta=theta)
+        self._points_links = compute_points_links(points=self.dataset_train, theta=theta)
         self._n_iterations = 0
-        self._outliers_removed = False
+        self._were_outliers_removed = False
+        self._outliers_removed = []
         self._max_idx = -1
         self._init_clusters()
         print("Rock algorithm initialized.")
 
     def _init_clusters(self) -> None:
         """Initialize all the clusters representing single points, creates local heaps for each cluster and global heap Q."""
-        for point in self.dataset.data:
+        for point in self.dataset_train:
             point_cluster = Cluster(idx=point.idx, points=[point])
             self._max_idx = max(self._max_idx, point.idx)
             self.clusters.append(point_cluster)
@@ -76,6 +81,35 @@ class RockAlgorithm:
                 theta=self.theta,
             )
 
+    def _predict_best_cluster(self, clustering_point: ClusteringPoint) -> Cluster:
+        """Predicts the best cluster for the given point."""
+        best_cluster = None
+        best_cluster_score = -1
+        for cluster in self.clusters:
+            size_penalty = get_expected_cluster_size_penalty(
+                cluster=cluster,
+                approx_fn=self.approx_fn,
+                theta=self.theta,
+            )
+            n_neighbors = sum(
+                [
+                    int(
+                        is_jaccard_similar(
+                            a=clustering_point.x,
+                            b=neighbour.x,
+                            theta_threshold=self.theta,
+                        )
+                    )
+                    for neighbour in cluster.points
+                ]
+            )
+            score = n_neighbors / size_penalty
+            if score > best_cluster_score:
+                best_cluster_score = score
+                best_cluster = cluster
+
+        return best_cluster
+
     def _run_iter(self) -> None:
         """Performs one iteration (merging) of the Rock algorithm along with:
         1. Updating clusters list.
@@ -108,11 +142,17 @@ class RockAlgorithm:
         """Removes all the clusters with size 1, next reinitializes the heaps and the global heap Q."""
         print("Removing outliers...")
         len_before = len(self.clusters)
+        indices_before = set([cluster.idx for cluster in self.clusters])
         self.clusters = [cluster for cluster in self.clusters if cluster.size() > 1]
         self._reset_heaps()
+        indices_removed = indices_before - set([cluster.idx for cluster in self.clusters])
+        self._outliers_removed = [
+            clustering_point for clustering_point in self.dataset_train if clustering_point.idx in indices_removed
+        ]
         print(f"Removed {len_before - len(self.clusters)} outliers.")
 
-    def run(self):
+    def create_clusters(self):
+        """Performs first phase of the Rock algorithm, which is creating clusters (based on the fragment of database)."""
         print("Running Rock algorithm...")
         max_joins = self.n_clusters_start - self.k
         pbar = tqdm(
@@ -131,8 +171,31 @@ class RockAlgorithm:
             self._run_iter()
             self._n_iterations += 1
 
-            if not self._outliers_removed and (len(self.clusters) / self.n_clusters_start) <= self.outliers_factor:
+            if (
+                not self._were_outliers_removed
+                and (len(self.clusters) / self.n_clusters_start) <= self.outliers_factor
+            ):
                 self._remove_outliers()
-                self._outliers_removed = True
+                self._were_outliers_removed = True
 
         print(f"Rock algorithm finished after {self._n_iterations} iterations.")
+
+    def collect_results(self, skip_outliers: bool = False) -> List[ClusteringPoint]:
+        """Collects the results of the algorithm - assigns created clusters to each point."""
+        print("Collecting results...")
+        results = []
+        for cluster in self.clusters:
+            for point in cluster.points:
+                point.output_cluster_idx = cluster.idx
+                results.append(point)
+        for point in self._outliers_removed:
+            predicted_cluster = self._predict_best_cluster(clustering_point=point)
+            point.output_cluster_idx = predicted_cluster.idx if not skip_outliers else None
+            results.append(point)
+        if self.dataset_test is not None:
+            for point in self.dataset_test:
+                predicted_cluster = self._predict_best_cluster(clustering_point=point)
+                point.output_cluster_idx = predicted_cluster.idx
+                results.append(point)
+        print("Results collected.")
+        return results

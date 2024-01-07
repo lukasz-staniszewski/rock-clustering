@@ -31,3 +31,12 @@ def get_congressional_dataset() -> ClusteringDataset:
         metadata=congressional_voting_records.metadata,
         variables=congressional_voting_records.variables,
     )
+
+
+def get_csv_dataset(path: str) -> ClusteringDataset:
+    df = pd.read_csv(path)
+    target = None
+    if "target" in df.columns:
+        target = df["target"].squeeze()
+        df = df.drop(columns=["target"])
+    return ClusteringDataset(data=df, target=target)

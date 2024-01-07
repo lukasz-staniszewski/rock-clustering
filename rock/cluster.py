@@ -3,10 +3,10 @@ from heapq import heapify, heappush
 from typing import Callable, List, Tuple
 
 import numpy as np
+from process_data import ClusteringPoint
 from tqdm import tqdm
 
 from rock.metrics import is_jaccard_similar
-from rock.process import ClusteringPoint
 
 Heap = List
 
@@ -95,6 +95,16 @@ def get_clusters_links(cluster_A: Cluster, cluster_B: Cluster, points_links: np.
     return sum(
         [points_links[point_A.idx][point_B.idx] for point_A in cluster_A.points for point_B in cluster_B.points]
     )
+
+
+def get_expected_cluster_size_penalty(
+    cluster: Cluster,
+    approx_fn: Callable,
+    theta: float,
+    eps: float = 1e-6,
+) -> float:
+    """Compute the expected cluster size penalty for inference process."""
+    return cluster.size() ** (1 + 2 * approx_fn(theta))
 
 
 def get_goodness_measure(
