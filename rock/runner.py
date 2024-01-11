@@ -1,9 +1,18 @@
 import argparse
 import os
 import time
-from pathlib import Path
+from collections import OrderedDict
+from datetime import datetime
+from typing import Dict
 
-from datasets import get_congressional_dataset, get_csv_dataset, get_mushroom_dataset
+from datasets import (
+    CONGRESSIONAL_DATASET,
+    CSV_DATASET,
+    MUSHROOM_DATASET,
+    get_congressional_dataset,
+    get_csv_dataset,
+    get_mushroom_dataset,
+)
 from process_data import get_rock_input, get_rock_output
 
 from rock import metrics
@@ -19,7 +28,6 @@ class Runner:
         approx_fn_name,
         split_train,
         dataset_path=None,
-        output_path=None,
         calculate_metrics=True,
         skip_outliers=False,
     ):
@@ -29,9 +37,9 @@ class Runner:
         self.approx_fn_name = approx_fn_name
         self.split_train = split_train
         self.dataset_path = dataset_path
-        self.output_path = output_path
         self.calculate_metrics = calculate_metrics
         self.skip_outliers = skip_outliers
+        self.run_name = self._get_run_name()
 
         self._config_data()
         self._config_fn()
@@ -39,11 +47,11 @@ class Runner:
         self.rock_algorithm = RockAlgorithm(dataset=self.data, theta=self.theta, k=self.k, approx_fn=self.approx_fn)
 
     def _config_data(self):
-        if self.dataset_name == "mushroom":
+        if self.dataset_name == MUSHROOM_DATASET:
             self.dataset = get_mushroom_dataset()
-        elif self.dataset_name == "congressional":
+        elif self.dataset_name == CONGRESSIONAL_DATASET:
             self.dataset = get_congressional_dataset()
-        elif self.dataset_name == "csv":
+        elif self.dataset_name == CSV_DATASET:
             if self.dataset_path is None:
                 raise ValueError("Dataset path not found but 'csv' dataset was selected")
             self.dataset = get_csv_dataset(self.dataset_path)
@@ -63,22 +71,49 @@ class Runner:
         else:
             raise ValueError("Approximation function not found")
 
-    def _save_to_csv(self) -> None:
+    def _save_results_to_csv(self) -> None:
         df_out = get_rock_output(dataset=self.dataset, rock_output=self.results)
-        if self.output_path is None or not Path(self.output_path).is_file():
-            self.output_path = os.path.join(os.getcwd(), f"{self.dataset_name}_results.csv")
-        df_out.to_csv(self.output_path, index=False, header=True)
+        output_path = os.path.join(os.getcwd(), "results", f"{self.run_name}.csv")
+        df_out.to_csv(output_path, index=False, header=True)
 
-    def _calculate_metrics(self):
+    def _save_metrics_to_csv(self, metrics_dict: Dict[str, float]) -> None:
+        df_dict = OrderedDict(
+            **{
+                "run_name": self.run_name,
+                "dataset_name": self.dataset_name,
+                "theta": self.theta,
+                "k": self.k,
+                "approx_fn_name": self.approx_fn_name,
+                "split_train": self.split_train,
+            }
+        )
+        df_dict.update(metrics_dict)
+        output_path = os.path.join(os.getcwd(), "metrics", f"{self.run_name}.csv")
+        df_dict.to_csv(output_path, index=False, header=True)
+
+    def _get_run_name(self):
+        return (
+            datetime.now().strftime("%Y%m%d%H%M")
+            + f"_{self.dataset_name}_theta{self.theta}_k{self.k}_{self.approx_fn_name}_split{self.split_train}"
+        )
+
+    def _calculate_metrics(self, runtime_sec: float) -> None:
         no_target = self.data.data_train[0].y is None
+        out_metrics = {}
         if no_target:
             print("No target found, using only internal metrics")
         else:
             print("Target found, using internal and external metrics")
             purity_val = metrics.purity(points=self.results, skip_outliers=self.skip_outliers)
+            out_metrics[metrics.METRIC_PURITY] = purity_val
             print(f"Metrics | Purity: {purity_val:.3f}")
+
         silhouette_val = metrics.silhouette(points=self.results, skip_outliers=self.skip_outliers)
+        out_metrics[metrics.METRIC_SILHOUETTE] = silhouette_val
         print(f"Metrics | Silhouette: {silhouette_val:.3f}")
+        print(f"Metrics | Runtime: {runtime_sec:.3f} seconds")
+        out_metrics["runtime_sec"] = f"{runtime_sec:.3f}"
+        self._save_metrics_to_csv(metrics_dict=out_metrics)
 
     def run(self) -> None:
         if self.calculate_metrics:
@@ -87,10 +122,9 @@ class Runner:
         self.results = self.rock_algorithm.collect_results(skip_outliers=self.skip_outliers)
         if self.calculate_metrics:
             end_time = time.process_time()
-        self._save_to_csv()
+        self._save_results_to_csv()
         if self.calculate_metrics:
-            print(f"Metrics | Runtime: {end_time-start_time:.3f} seconds")
-            self._calculate_metrics()
+            self._calculate_metrics(runtime_sec=end_time - start_time)
 
 
 def main(args: argparse.Namespace):
@@ -101,7 +135,6 @@ def main(args: argparse.Namespace):
         approx_fn_name=args.approx_fn,
         split_train=args.split_train,
         dataset_path=args.dataset_path,
-        output_path=args.output_path,
         calculate_metrics=args.calculate_metrics,
         skip_outliers=args.skip_outliers,
     )
@@ -146,12 +179,6 @@ if __name__ == "__main__":
         "--dataset_path",
         type=str,
         help="Path to the .csv dataset (only if dataset=csv)",
-        default=None,
-    )
-    parser.add_argument(
-        "--output_path",
-        type=str,
-        help="Path to save the results",
         default=None,
     )
     parser.add_argument(

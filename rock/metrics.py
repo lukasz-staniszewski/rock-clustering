@@ -10,6 +10,9 @@ RATIONAL_SUB = lambda x: (1 - x) / (1 + x)
 RATIONAL_EXP = lambda x: np.exp(x) / (1 - x)
 RATIONAL_SIN = lambda x: np.sin(x) / (1 - x)
 
+METRIC_SILHOUETTE = "silhouette"
+METRIC_PURITY = "purity"
+
 
 def jaccard(a: np.ndarray[bool], b: np.ndarray[bool]) -> float:
     assert a.shape == b.shape

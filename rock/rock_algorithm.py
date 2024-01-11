@@ -1,4 +1,3 @@
-from copy import deepcopy
 from heapq import heapify, heappop, heappush
 from typing import Callable, List, Tuple
 
@@ -28,11 +27,11 @@ class RockAlgorithm:
         self.theta = theta
         self.approx_fn = approx_fn
         self.outliers_factor = outliers_factor
-        self._points_links = compute_points_links(points=self.dataset_train, theta=theta)
         self._n_iterations = 0
         self._were_outliers_removed = False
         self._outliers_removed = []
         self._max_idx = -1
+        self._points_links = compute_points_links(points=self.dataset_train, theta=theta)
         self._init_clusters()
         print("Rock algorithm initialized.")
 
@@ -66,6 +65,7 @@ class RockAlgorithm:
         heapify(self._Q)
         for cluster in self.clusters:
             if cluster.heap:
+                # cluster.heap[0][0] is already negated goodness measure, re-negation is unnecessary
                 heappush(self._Q, (cluster.heap[0][0], cluster))
 
     def _update_qs_from_merged(self, cluster_removed_A: Cluster, cluster_removed_B: Cluster) -> None:

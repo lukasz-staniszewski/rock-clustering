@@ -4,6 +4,10 @@ from typing import Optional
 import pandas as pd
 from ucimlrepo import fetch_ucirepo
 
+MUSHROOM_DATASET = "mushroom"
+CONGRESSIONAL_DATASET = "congressional"
+CSV_DATASET = "csv"
+
 
 @dataclass
 class ClusteringDataset:
