@@ -64,7 +64,9 @@ def get_point_neighbors(point: ClusteringPoint, points: List[ClusteringPoint], t
     """Get all points that are jaccard similar to the given point."""
     neighbors = []
     for other_point in points:
-        if point.idx != other_point.idx and is_jaccard_similar(point.x, other_point.x, theta):
+        if point.idx != other_point.idx and is_jaccard_similar(
+            transaction_a=point.transaction, transaction_b=other_point.transaction, theta_threshold=theta
+        ):
             neighbors.append(other_point)
     return neighbors
 

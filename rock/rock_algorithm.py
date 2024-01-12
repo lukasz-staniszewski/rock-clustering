@@ -95,8 +95,8 @@ class RockAlgorithm:
                 [
                     int(
                         is_jaccard_similar(
-                            a=clustering_point.x,
-                            b=neighbour.x,
+                            transaction_a=clustering_point.transaction,
+                            transaction_b=neighbour.transaction,
                             theta_threshold=self.theta,
                         )
                     )

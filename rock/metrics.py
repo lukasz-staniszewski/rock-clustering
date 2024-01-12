@@ -1,5 +1,5 @@
 from collections import Counter, defaultdict
-from typing import List
+from typing import List, Set
 
 import numpy as np
 from process_data import ClusteringPoint
@@ -14,17 +14,16 @@ METRIC_SILHOUETTE = "silhouette"
 METRIC_PURITY = "purity"
 
 
-def jaccard(a: np.ndarray[bool], b: np.ndarray[bool]) -> float:
-    assert a.shape == b.shape
-    return np.sum(a == b) / a.shape[0]
+def jaccard(transaction_a: Set[str], transaction_b: Set[str]) -> float:
+    return len(transaction_a.intersection(transaction_b)) / len(transaction_a.union(transaction_b))
 
 
-def jaccard_distance(a: np.ndarray[bool], b: np.ndarray[bool]) -> float:
-    return 1 - jaccard(a, b)
+def jaccard_distance(transaction_a: Set[str], transaction_b: Set[str]) -> float:
+    return 1 - jaccard(transaction_a=transaction_a, transaction_b=transaction_b)
 
 
-def is_jaccard_similar(a: np.ndarray[bool], b: np.ndarray[bool], theta_threshold: float = 0.5) -> bool:
-    return jaccard(a, b) >= theta_threshold
+def is_jaccard_similar(transaction_a: Set[str], transaction_b: Set[str], theta_threshold: float = 0.5) -> bool:
+    return jaccard(transaction_a=transaction_a, transaction_b=transaction_b) >= theta_threshold
 
 
 def purity(points: List[ClusteringPoint], skip_outliers: bool = False) -> float:
@@ -55,7 +54,7 @@ def silhouette(points: List[ClusteringPoint], skip_outliers: bool = False) -> fl
     for point_i in silhouette_points:
         a_i = np.mean(
             [
-                jaccard_distance(point_i.x, point_j.x)
+                jaccard_distance(transaction_a=point_i.transaction, transaction_b=point_j.transaction)
                 for point_j in by_cluster[point_i.output_cluster_idx]
                 if point_i.original_idx != point_j.original_idx
             ]
@@ -63,7 +62,12 @@ def silhouette(points: List[ClusteringPoint], skip_outliers: bool = False) -> fl
 
         b_i = min(
             [
-                np.mean([jaccard_distance(point_i.x, point_j.x) for point_j in by_cluster[cluster_idx]])
+                np.mean(
+                    [
+                        jaccard_distance(transaction_a=point_i.transaction, transaction_b=point_j.transaction)
+                        for point_j in by_cluster[cluster_idx]
+                    ]
+                )
                 for cluster_idx in by_cluster.keys()
                 if cluster_idx != point_i.output_cluster_idx
             ]

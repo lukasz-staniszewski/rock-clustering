@@ -5,6 +5,7 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Dict
 
+import pandas as pd
 from datasets import (
     CONGRESSIONAL_DATASET,
     CSV_DATASET,
@@ -89,7 +90,9 @@ class Runner:
         )
         df_dict.update(metrics_dict)
         output_path = os.path.join(os.getcwd(), "metrics", f"{self.run_name}.csv")
-        df_dict.to_csv(output_path, index=False, header=True)
+
+        df = pd.DataFrame([df_dict])
+        df.to_csv(output_path, index=False, header=True)
 
     def _get_run_name(self):
         return (
@@ -183,9 +186,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--calculate_metrics",
-        type=bool,
         help="Whether calculate metrics and runtime",
-        default=True,
+        action="store_true",
     )
     parser.add_argument(
         "--skip_outliers",
