@@ -14,8 +14,8 @@ METRIC_SILHOUETTE = "silhouette"
 METRIC_PURITY = "purity"
 
 
-def jaccard(transaction_a: Set[str], transaction_b: Set[str]) -> float:
-    return len(transaction_a.intersection(transaction_b)) / len(transaction_a.union(transaction_b))
+def jaccard(transaction_a: Set[str], transaction_b: Set[str], eps: float = 1e-6) -> float:
+    return len(transaction_a.intersection(transaction_b)) / (len(transaction_a.union(transaction_b)) + eps)
 
 
 def jaccard_distance(transaction_a: Set[str], transaction_b: Set[str]) -> float:
@@ -26,25 +26,25 @@ def is_jaccard_similar(transaction_a: Set[str], transaction_b: Set[str], theta_t
     return jaccard(transaction_a=transaction_a, transaction_b=transaction_b) >= theta_threshold
 
 
-def purity(points: List[ClusteringPoint], skip_outliers: bool = False) -> float:
+def purity(points: List[ClusteringPoint], skip_outliers: bool = False, eps: float = 1e-6) -> float:
     """Calculates the purity of all the clusters."""
     if not points:
         return 0
-    purity_points = [point for point in points if point.y is not None] if skip_outliers else points
+    purity_points = [point for point in points if point.output_cluster_idx is not None] if skip_outliers else points
 
     by_cluster = defaultdict(list)
     for point in purity_points:
         by_cluster[point.output_cluster_idx].append(point.y)
 
-    return sum(max(Counter(cluster).values()) for cluster in by_cluster.values()) / len(purity_points)
+    return sum(max(Counter(cluster).values()) for cluster in by_cluster.values()) / (len(purity_points) + eps)
 
 
 def silhouette(points: List[ClusteringPoint], skip_outliers: bool = False) -> float:
-    """Calculates the silhouette metric for all the points (avg)."""
+    """Calculates the Silhouette metric for all the points (avg)."""
 
     if not points:
         return 0
-    silhouette_points = [point for point in points if point.y is not None] if skip_outliers else points
+    silhouette_points = [point for point in points if point.output_cluster_idx is not None] if skip_outliers else points
 
     by_cluster = defaultdict(list)
     for point in silhouette_points:
@@ -52,6 +52,8 @@ def silhouette(points: List[ClusteringPoint], skip_outliers: bool = False) -> fl
 
     silhouettes = []
     for point_i in silhouette_points:
+        if len(by_cluster[point_i.output_cluster_idx]) == 1:
+            continue
         a_i = np.mean(
             [
                 jaccard_distance(transaction_a=point_i.transaction, transaction_b=point_j.transaction)

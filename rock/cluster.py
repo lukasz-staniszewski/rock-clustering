@@ -32,9 +32,10 @@ class Cluster:
         self,
         clusters: List["Cluster"],
         points_links: np.ndarray,
-        approx_fn: Callable,
+        approx_fn: Callable[[float], float],
         theta: float,
     ) -> None:
+        """Initializes the local heap for the cluster (first element is cluster with highest goodness measure)."""
         self.heap = []
         heapify(self.heap)
         for cluster in clusters:
@@ -52,7 +53,7 @@ class Cluster:
                     (-goodness, cluster),
                 )
 
-    def merge_clusters(self, cluster: "Cluster", new_idx=int) -> "Cluster":
+    def merge_clusters(self, cluster: "Cluster", new_idx: int) -> "Cluster":
         """Creates a new cluster by merging the current cluster with the given one."""
         return Cluster(
             idx=new_idx,
@@ -101,9 +102,8 @@ def get_clusters_links(cluster_A: Cluster, cluster_B: Cluster, points_links: np.
 
 def get_expected_cluster_size_penalty(
     cluster: Cluster,
-    approx_fn: Callable,
+    approx_fn: Callable[[float], float],
     theta: float,
-    eps: float = 1e-6,
 ) -> float:
     """Compute the expected cluster size penalty for inference process."""
     return cluster.size() ** (1 + 2 * approx_fn(theta))
@@ -113,7 +113,7 @@ def get_goodness_measure(
     cluster_A: Cluster,
     cluster_B: Cluster,
     points_links: np.ndarray,
-    approx_fn: Callable,
+    approx_fn: Callable[[float], float],
     theta: float,
     eps: float = 1e-6,
 ) -> float:

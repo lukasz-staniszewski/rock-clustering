@@ -115,7 +115,9 @@ class Runner:
         out_metrics[metrics.METRIC_SILHOUETTE] = silhouette_val
         print(f"Metrics | Silhouette: {silhouette_val:.3f}")
         print(f"Metrics | Runtime: {runtime_sec:.3f} seconds")
+        print(f"Metrics | Number of clusters: {len(self.rock_algorithm.clusters)}")
         out_metrics["runtime_sec"] = f"{runtime_sec:.3f}"
+        out_metrics["n_clusters"] = f"{len(self.rock_algorithm.clusters)}"
         self._save_metrics_to_csv(metrics_dict=out_metrics)
 
     def run(self) -> None:
@@ -137,7 +139,7 @@ def main(args: argparse.Namespace):
         k=args.k,
         approx_fn_name=args.approx_fn,
         split_train=args.split_train,
-        dataset_path=args.dataset_path,
+        dataset_path=args.csv_dataset_path,
         calculate_metrics=args.calculate_metrics,
         skip_outliers=args.skip_outliers,
     )
@@ -179,7 +181,7 @@ if __name__ == "__main__":
         default=0.15,
     )
     parser.add_argument(
-        "--dataset_path",
+        "--csv_dataset_path",
         type=str,
         help="Path to the .csv dataset (only if dataset=csv)",
         default=None,

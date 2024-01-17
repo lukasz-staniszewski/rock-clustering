@@ -14,11 +14,18 @@ class RockAlgorithm:
     dataset: RockInput
     theta: float
     k: int
-    approx_fn: Callable
+    approx_fn: Callable[[float], float]
     clusters: List[Cluster] = []
     _Q: Heap[Tuple[float, Cluster]] = []
 
-    def __init__(self, dataset: RockInput, k: int, theta: float, approx_fn: Callable, outliers_factor: float = 0.33):
+    def __init__(
+        self,
+        dataset: RockInput,
+        k: int,
+        theta: float,
+        approx_fn: Callable[[float], float],
+        outliers_factor: float = 0.33,
+    ):
         print("Initializing Rock algorithm...")
         self.dataset = dataset
         self.dataset_train = dataset.data_train
@@ -162,7 +169,7 @@ class RockAlgorithm:
         for _ in pbar:
             pbar.set_postfix({"Clusters": len(self.clusters)})
             if len(self.clusters) <= self.k:
-                print(f"Reached k={self.k} clusters.")
+                print(f"Reached k={len(self.clusters)} (<={self.k}) clusters.")
                 break
             if len(self._Q) == 0:
                 print("No more clusters to merge.")
