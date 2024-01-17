@@ -1,6 +1,7 @@
 # ROCK Clustering Algorithm
 
 Implementation of the ROCK: A Robust Clustering Algorithm for Categorical Attributes.
+Based on the: [ROCK: A Robust Clustering Algorithm for Categorical Attributes - Data Engineering, 1999. Proceedings.](https://theory.stanford.edu/~sudipto/mypapers/categorical.pdf)
 
 ## Usage
 
