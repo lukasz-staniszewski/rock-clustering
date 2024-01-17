@@ -4,7 +4,14 @@ from typing import Callable, List, Tuple
 from process_data import RockInput
 from tqdm import tqdm
 
-from rock.cluster import Cluster, ClusteringPoint, Heap, compute_points_links, get_expected_cluster_size_penalty
+from rock.cluster import (
+    Cluster,
+    ClusteringPoint,
+    Heap,
+    compute_points_links,
+    get_expected_cluster_size_penalty,
+    get_goodness_measure,
+)
 from rock.metrics import is_jaccard_similar
 
 
@@ -75,18 +82,29 @@ class RockAlgorithm:
                 # cluster.heap[0][0] is already negated goodness measure, re-negation is unnecessary
                 heappush(self._Q, (cluster.heap[0][0], cluster))
 
-    def _update_qs_from_merged(self, cluster_removed_A: Cluster, cluster_removed_B: Cluster) -> None:
+    def _update_qs_from_merged(
+        self, cluster_removed_A: Cluster, cluster_removed_B: Cluster, merged_cluster: Cluster
+    ) -> None:
         """Updates the local heaps of the neighbours of just removed clusters."""
         neighbours = [cluster[1] for cluster in cluster_removed_A.heap if cluster[1].idx != cluster_removed_B.idx]
         neighbours += [cluster[1] for cluster in cluster_removed_B.heap if cluster[1].idx != cluster_removed_A.idx]
 
         for cluster in neighbours:
-            cluster.init_heap(
-                clusters=self.clusters,
+            cluster.heap = [
+                clust_data
+                for clust_data in cluster.heap
+                if (clust_data[1].idx != cluster_removed_A.idx and clust_data[1].idx != cluster_removed_B.idx)
+            ]
+            heapify(cluster.heap)
+            merged_goodness = get_goodness_measure(
+                cluster_A=cluster,
+                cluster_B=merged_cluster,
                 points_links=self._points_links,
                 approx_fn=self.approx_fn,
                 theta=self.theta,
             )
+            if merged_goodness > 0:
+                heappush(cluster.heap, (-merged_goodness, merged_cluster))
 
     def _predict_best_cluster(self, clustering_point: ClusteringPoint) -> Cluster:
         """Predicts the best cluster for the given point."""
@@ -141,7 +159,7 @@ class RockAlgorithm:
             theta=self.theta,
         )
         # update neighbours heaps
-        self._update_qs_from_merged(cluster_removed_A=best_A, cluster_removed_B=best_B)
+        self._update_qs_from_merged(cluster_removed_A=best_A, cluster_removed_B=best_B, merged_cluster=merged_cluster)
         # update global heap Q
         self._reset_Q()
 
